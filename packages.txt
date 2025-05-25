@@ -1,4 +1,5 @@
-chromium-browser
+chromium
+chromium-driver
 chromium-codecs-ffmpeg
 chromium-chromedriver
 xvfb
