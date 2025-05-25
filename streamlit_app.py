@@ -265,11 +265,13 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
             for url_data in all_data:
                 url = url_data.get('url', 'N/A')
                 extracted = url_data.get('extracted_data', {})
+                print("extracted",extracted)
                 
                 # Handle the nested structure where extracted_data is inside another extracted_data key
                 if isinstance(extracted, dict):
                     # Get the inner extracted_data array
                     items = extracted.get('extracted_data', [])
+                    print("items",items)
                     if isinstance(items, list):
                         for item in items:
                             try:
@@ -285,13 +287,10 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
                                     # Create row from parsed data
                                         print("data ",i)
 
-                                        row = {
-                                            'Source URL': url,
-                                            'Advertiser Name': i.get('advertiser_name', 'N/A'),
-                                            'Ad URL': i.get('ad_url', 'N/A'),
-                                            'Category': i.get('category', 'N/A'),
-                                            'Network': i.get('network_name', 'N/A')
-                                        }
+                                        row = {'Source URL': url}
+                                        if isinstance(i, dict):
+                                            for key, value in i.items():
+                                                row[key] = value
                                         processed_data.append(row)
                                         
                             except json.JSONDecodeError as e:
@@ -302,9 +301,13 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
                                 continue
                 
             if processed_data:
-                # Create DataFrame with specific column order
-                columns = ['Source URL', 'Advertiser Name', 'Ad URL', 'Category', 'Network']
-                df = pd.DataFrame(processed_data, columns=columns)
+                # Dynamically create DataFrame from processed data
+                df = pd.DataFrame(processed_data)
+
+                # Optional: move 'Source URL' to the front if it exists
+                if 'Source URL' in df.columns:
+                    cols = ['Source URL'] + [col for col in df.columns if col != 'Source URL']
+                    df = df[cols]
                 
                 # Create download buttons in a more prominent location
                 st.markdown("### Download Options")

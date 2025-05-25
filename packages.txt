@@ -1,0 +1,5 @@
+chromium-browser
+chromium-codecs-ffmpeg
+chromium-chromedriver
+xvfb
+libgbm1 

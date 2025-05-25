@@ -1,10 +1,7 @@
-litellm
-python-dotenv
-pydantic
+streamlit
 pandas
-openpyxl
+playwright
+python-dotenv
+asyncio
 streamlit-tags
 supabase
-streamlit
-streamlit-tags
-crawl4ai
