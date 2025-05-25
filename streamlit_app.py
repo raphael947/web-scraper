@@ -272,13 +272,39 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
                     items = extracted.get('extracted_data', [])
                     if isinstance(items, list):
                         for item in items:
-                            if isinstance(item, dict):
-                                # Add source URL to each row
-                                row = {'Source URL': url, **item}
-                                processed_data.append(row)
+                            try:
+                                # Clean and parse the JSON content
+                                if isinstance(item, dict) and 'content' in item:
+                                    # Remove any leading/trailing whitespace and quotes
+                                    json_str = item['content']
+                                    cleaned_content = json_str.strip().removeprefix("```json").removesuffix("```").strip()
+                                    print("cleaned_content",json_str)
+                                    parsed_data = json.loads(cleaned_content)['extracted_data']  
+                               
+                                    for i in parsed_data:
+                                    # Create row from parsed data
+                                        print("data ",i)
+
+                                        row = {
+                                            'Source URL': url,
+                                            'Advertiser Name': i.get('advertiser_name', 'N/A'),
+                                            'Ad URL': i.get('ad_url', 'N/A'),
+                                            'Category': i.get('category', 'N/A'),
+                                            'Network': i.get('network_name', 'N/A')
+                                        }
+                                        processed_data.append(row)
+                                        
+                            except json.JSONDecodeError as e:
+                                print(f"Error parsing JSON: {e}")
+                                continue
+                            except Exception as e:
+                                print(f"Error processing item: {e}")
+                                continue
                 
             if processed_data:
-                df = pd.DataFrame(processed_data)
+                # Create DataFrame with specific column order
+                columns = ['Source URL', 'Advertiser Name', 'Ad URL', 'Category', 'Network']
+                df = pd.DataFrame(processed_data, columns=columns)
                 
                 # Create download buttons in a more prominent location
                 st.markdown("### Download Options")
