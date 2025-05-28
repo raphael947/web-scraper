@@ -265,40 +265,20 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
             for url_data in all_data:
                 url = url_data.get('url', 'N/A')
                 extracted = url_data.get('extracted_data', {})
-                print("extracted",extracted)
+                print("extracted:", extracted)
                 
-                # Handle the nested structure where extracted_data is inside another extracted_data key
-                if isinstance(extracted, dict):
-                    # Get the inner extracted_data array
-                    items = extracted.get('extracted_data', [])
-                    print("items",items)
+                # Handle the extracted data directly
+                if isinstance(extracted, dict) and 'extracted_data' in extracted:
+                    items = extracted['extracted_data']
+                    print("items:", items)
                     if isinstance(items, list):
                         for item in items:
-                            try:
-                                # Clean and parse the JSON content
-                                if isinstance(item, dict) and 'content' in item:
-                                    # Remove any leading/trailing whitespace and quotes
-                                    json_str = item['content']
-                                    cleaned_content = json_str.strip().removeprefix("```json").removesuffix("```").strip()
-                                    print("cleaned_content",json_str)
-                                    parsed_data = json.loads(cleaned_content)['extracted_data']  
-                               
-                                    for i in parsed_data:
-                                    # Create row from parsed data
-                                        print("data ",i)
-
-                                        row = {'Source URL': url}
-                                        if isinstance(i, dict):
-                                            for key, value in i.items():
-                                                row[key] = value
-                                        processed_data.append(row)
-                                        
-                            except json.JSONDecodeError as e:
-                                print(f"Error parsing JSON: {e}")
-                                continue
-                            except Exception as e:
-                                print(f"Error processing item: {e}")
-                                continue
+                            if isinstance(item, dict):
+                                row = {'Source URL': url}
+                                row.update(item)
+                                processed_data.append(row)
+                else:
+                    print("No valid extracted_data found for:", url)
                 
             if processed_data:
                 # Dynamically create DataFrame from processed data
