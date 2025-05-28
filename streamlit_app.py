@@ -11,8 +11,8 @@ import asyncio
 from scraper import scrape_urls
 from pagination import paginate_urls
 from markdown import fetch_and_store_markdowns
-from assets import MODELS_USED
-from api_management import get_supabase_client
+from assets import MODELS_USED, OPENAI_MODELS, GEMINI_MODELS, TIMEOUT_SETTINGS, TIMEOUT_DESCRIPTIONS
+from api_management import get_supabase_client, get_api_key
 
 # Only use WindowsProactorEventLoopPolicy on Windows
 if sys.platform.startswith("win"):
@@ -80,21 +80,89 @@ st.sidebar.title("Web Scraper Settings")
 
 # API Keys
 with st.sidebar.expander("API Keys", expanded=False):
-    # Loop over every model in MODELS_USED
+    # Collect all unique API keys needed across all models
+    all_required_keys = set()
     for model, required_keys in MODELS_USED.items():
-        # required_keys is a set (e.g. {"GEMINI_API_KEY"})
-        for key_name in required_keys:
-            # Create a password-type text input for each API key
-            st.text_input(key_name,type="password",key=key_name)
-    st.session_state['SUPABASE_ANON_KEY'] = st.text_input("SUPABASE ANON KEY", type="password")
+        all_required_keys.update(required_keys)
+    
+    # Create a text input for each unique API key with status indicators
+    for key_name in sorted(all_required_keys):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.text_input(key_name, type="password", key=key_name)
+        with col2:
+            # Show status indicator
+            key_value = st.session_state.get(key_name, "")
+            if key_value and key_value.strip():
+                st.markdown("✅", help="API key provided")
+            else:
+                st.markdown("❌", help="API key missing")
+
+# Timeout Settings
+with st.sidebar.expander("⏱️ Timeout Settings", expanded=False):
+    st.markdown("**Configure page timeout for web scraping**")
+    
+    # Initialize timeout settings in session state if not present
+    if 'timeout_settings' not in st.session_state:
+        st.session_state['timeout_settings'] = TIMEOUT_SETTINGS.copy()
+    
+    # Only show page_timeout setting in minutes
+    setting_key = "page_timeout"
+    default_value = TIMEOUT_SETTINGS[setting_key]
+    description = TIMEOUT_DESCRIPTIONS.get(setting_key, "")
+    
+    # Page timeout in minutes
+    page_timeout_minutes = st.number_input(
+        label="Page Timeout (minutes)",
+        min_value=0.5,
+        max_value=10.0,
+        value=float(st.session_state['timeout_settings'].get(setting_key, default_value)),
+        step=0.5,
+        help=description,
+        format="%.1f",
+        key=f"timeout_{setting_key}"
+    )
+    
+    # Store the value in minutes but convert to milliseconds for the backend
+    st.session_state['timeout_settings'][setting_key] = page_timeout_minutes
+    
+    # Reset to defaults button
+    if st.button("🔄 Reset to Defaults", help="Reset timeout setting to default value"):
+        st.session_state['timeout_settings'] = TIMEOUT_SETTINGS.copy()
+        st.rerun()
 
 # Model selection
-model_selection = st.sidebar.selectbox(
-    "Select Model", 
-    options=list(MODELS_USED.keys()), 
-    index=0,
-    help="Suggested models:\n- gpt-4o-mini: Standard model for complex extractions and understanding context\n- gemini-1.5-flash: Fast and efficient for straightforward extractions"
+st.sidebar.markdown("### AI Model Selection")
+
+# Create options for all models without parentheses
+all_options = []
+all_help_text = []
+model_key_mapping = {}
+
+# Add OpenAI models
+for model_key, model_info in OPENAI_MODELS.items():
+    display_name = model_info['name']
+    all_options.append(display_name)
+    all_help_text.append(f"**{model_info['name']}**: {model_info['description']}")
+    model_key_mapping[display_name] = model_key
+
+# Add Gemini models
+for model_key, model_info in GEMINI_MODELS.items():
+    display_name = model_info['name']
+    all_options.append(display_name)
+    all_help_text.append(f"**{model_info['name']}**: {model_info['description']}")
+    model_key_mapping[display_name] = model_key
+
+model_display_selection = st.sidebar.selectbox(
+    "Choose AI Model", 
+    options=all_options,
+    index=0,  # Default to first model
+    help="\n\n".join(all_help_text)
 )
+
+# Get the actual model key from the display selection
+model_selection = model_key_mapping[model_display_selection]
+
 st.sidebar.markdown("---")
 st.sidebar.write("## URL Input Section")
 # Ensure the session state for our URL list exists
@@ -174,19 +242,26 @@ if st.sidebar.button("LAUNCH", type="primary"):
     elif show_extraction and not extraction_prompt.strip():
         st.error("Please enter an extraction prompt.")
     else:
-        # Save user choices
-        st.session_state['urls'] = st.session_state["urls_splitted"]
-        st.session_state['extraction_prompt'] = extraction_prompt
-        st.session_state['model_selection'] = model_selection
-        st.session_state['use_pagination'] = use_pagination
-        st.session_state['pagination_details'] = pagination_details
-        
-        # fetch or reuse the markdown for each URL
-        unique_names = fetch_and_store_markdowns(st.session_state["urls_splitted"])
-        st.session_state["unique_names"] = unique_names
-
-        # Move on to "scraping" step
-        st.session_state['scraping_state'] = 'scraping'
+        # Check if the required API key for the selected model is present
+        api_key = get_api_key(model_selection)
+        if not api_key:
+            required_key = list(MODELS_USED[model_selection])[0]
+            st.error(f"🔑 **API Key Required!** Please enter your {required_key} in the API Keys section above to use {model_display_selection}.")
+        else:
+            # Save user choices
+            st.session_state['urls'] = st.session_state["urls_splitted"]
+            st.session_state['extraction_prompt'] = extraction_prompt
+            st.session_state['model_selection'] = model_selection
+            st.session_state['use_pagination'] = use_pagination
+            st.session_state['pagination_details'] = pagination_details
+            
+            # Fetch and store markdowns with timeout settings
+            unique_names = fetch_and_store_markdowns(
+                st.session_state["urls_splitted"], 
+                st.session_state.get('timeout_settings', TIMEOUT_SETTINGS)
+            )
+            st.session_state["unique_names"] = unique_names
+            st.session_state['scraping_state'] = 'scraping'
 
 if st.session_state['scraping_state'] == 'scraping':
     try:

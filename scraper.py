@@ -1,6 +1,7 @@
 # scraper.py
 
 import json
+import re
 from typing import List, Dict, Any
 from assets import OPENAI_MODEL_FULLNAME, GEMINI_MODEL_FULLNAME
 from llm_calls import call_llm_model
@@ -8,6 +9,28 @@ from markdown import read_raw_data
 from api_management import get_supabase_client
 
 supabase = get_supabase_client()
+
+def clean_json_response(response_text: str) -> str:
+    """Clean JSON response by removing markdown code blocks and other formatting."""
+    if not isinstance(response_text, str):
+        return response_text
+    
+    # Remove markdown code blocks
+    response_text = re.sub(r'^```json\s*', '', response_text, flags=re.MULTILINE)
+    response_text = re.sub(r'^```\s*$', '', response_text, flags=re.MULTILINE)
+    response_text = re.sub(r'```$', '', response_text)
+    
+    # Remove any trailing markdown or notes
+    response_text = response_text.strip()
+    
+    # Find the JSON content between the first { and last }
+    start_idx = response_text.find('{')
+    end_idx = response_text.rfind('}')
+    
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        response_text = response_text[start_idx:end_idx + 1]
+    
+    return response_text
 
 def save_formatted_data(unique_name: str, formatted_data):
     if isinstance(formatted_data, str):
@@ -105,8 +128,12 @@ def scrape_urls(unique_names: List[str], extraction_prompts: List[str], selected
             # Try to parse the response if it's a string
             if isinstance(extracted_data, str):
                 try:
-                    extracted_data = json.loads(extracted_data)
-                except json.JSONDecodeError:
+                    # Clean the response first to remove markdown code blocks
+                    cleaned_response = clean_json_response(extracted_data)
+                    extracted_data = json.loads(cleaned_response)
+                except json.JSONDecodeError as e:
+                    print(f"JSON parsing error for {uniq}: {e}")
+                    print(f"Raw response: {extracted_data[:500]}...")
                     extracted_data = {"extracted_data": [{"content": extracted_data, "metadata": {"location": "unknown", "context": "full text"}}]}
 
             # Store the results

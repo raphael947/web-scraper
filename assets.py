@@ -5,15 +5,55 @@ that are used across different parts of the application.
 
 
 GEMINI_MODEL_FULLNAME="gemini/gemini-1.5-flash"
-OPENAI_MODEL_FULLNAME="gpt-4o-mini"
-MODELS_USED = {
-    OPENAI_MODEL_FULLNAME: {"OPENAI_API_KEY"},
-    GEMINI_MODEL_FULLNAME: {"GEMINI_API_KEY"},
+GEMINI_2_MODEL_FULLNAME="gemini/gemini-2.0-flash-exp"
+
+# Available OpenAI models
+OPENAI_MODELS = {
+    "gpt-4o-mini": {
+        "name": "GPT-4o Mini",
+        "description": "Fast and cost-effective model for basic extractions"
+    },
+    "gpt-4o": {
+        "name": "GPT-4o", 
+        "description": "Advanced model for complex extractions and superior understanding"
+    }
 }
-# Timeout settings for web scraping
+
+# Available Gemini models
+GEMINI_MODELS = {
+    GEMINI_MODEL_FULLNAME: {
+        "name": "Gemini 1.5 Flash",
+        "description": "Fast and efficient for straightforward extractions"
+    },
+    GEMINI_2_MODEL_FULLNAME: {
+        "name": "Gemini 2.0 Flash",
+        "description": "Latest experimental Gemini model with enhanced capabilities"
+    }
+}
+
+# Default model (can be overridden by user selection)
+OPENAI_MODEL_FULLNAME="gpt-4o-mini"
+
+MODELS_USED = {
+    "gpt-4o-mini": {"OPENAI_API_KEY"},
+    "gpt-4o": {"OPENAI_API_KEY"},
+    GEMINI_MODEL_FULLNAME: {"GEMINI_API_KEY"},
+    GEMINI_2_MODEL_FULLNAME: {"GEMINI_API_KEY"},
+}
+
+# Timeout settings for web scraping (page_timeout in minutes, others in seconds)
 TIMEOUT_SETTINGS = {
-    "page_load": 30,
-    "script": 10
+    "page_timeout": 2.0,  # minutes - Timeout for page navigation or JS steps
+    "delay_before_return_html": 0.1,  # seconds - Additional pause before final HTML capture
+    "screenshot_wait_for": 2.0,  # seconds - Extra wait time before taking screenshots
+    "scroll_delay": 0.2,  # seconds - Delay between scroll steps for full page scanning
+    "mean_delay": 0.1,  # seconds - Base delay between crawls for multiple URLs
+    "max_range": 0.3,  # seconds - Maximum range for random delays
+}
+
+# Timeout descriptions for UI (only page_timeout will be shown)
+TIMEOUT_DESCRIPTIONS = {
+    "page_timeout": "Maximum time to wait for page loading and JavaScript execution - increase for slow sites or to capture more dynamic content like ads",
 }
 
 NUMBER_SCROLL=2
